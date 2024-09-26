@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Hosting with Firebase</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      color: #333;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h1 {
+      color: #4CAF50;
+      text-align: center;
+    }
+
+    form {
+      max-width: 400px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    p {
+      text-align: center;
+      color: #555;
+    }
+
+    #uploadResult, #downloadResult {
+      color: #007BFF;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upload and Download Files</h1>
+
+  <form id="upload-form">
+    <h2>Upload a File</h2>
+    <input type="file" id="fileInput" required>
+    <button type="submit">Upload</button>
+    <p id="uploadResult"></p>
+  </form>
+
+  <form id="download-form">
+    <h2>Download a File</h2>
+    <input type="text" id="downloadCodeInput" placeholder="Enter download code" required>
+    <button type="submit">Download</button>
+    <p id="downloadResult"></p>
+  </form>
+
+  <!-- Firebase JS SDK -->
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-storage.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
+
+    // Your Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyC5deWbtJBnyqxUPw_3SJP4-Eg2TeTnc_Y",
+      authDomain: "busfile.firebaseapp.com",
+      projectId: "busfile",
+      storageBucket: "busfile.appspot.com",
+      messagingSenderId: "877830183381",
+      appId: "1:877830183381:web:5f11f8b2bbb4417d74855c"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+    const db = getFirestore(app);
+
+    // File Upload Form
+    const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('fileInput');
+    const uploadResult = document.getElementById('uploadResult');
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select a file to upload.');
+        return;
+      }
+
+      // Generate a unique file code
+      const code = Math.random().toString(36).substring(2, 8);
+
+      // Upload file to Firebase Storage
+      const storageRef = ref(storage, `files/${code}/${file.name}`);
+      await uploadBytes(storageRef, file);
+
+      // Store file metadata in Firestore
+      await setDoc(doc(db, 'files', code), {
+        fileName: file.name,
+        filePath: `files/${code}/${file.name}`,
+      });
+
+      uploadResult.textContent = `File uploaded! Your download code is: ${code}`;
+      uploadForm.reset();
+    });
+
+    // File Download Form
+    const downloadForm = document.getElementById('download-form');
+    const downloadCodeInput = document.getElementById('downloadCodeInput');
+    const downloadResult = document.getElementById('downloadResult');
+
+    downloadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = downloadCodeInput.value.trim();
+      if (!code) {
+        alert('Please enter a download code.');
+        return;
+      }
+
+      // Retrieve file metadata from Firestore
+      const fileDoc = await getDoc(doc(db, 'files', code));
+      if (!fileDoc.exists()) {
+        downloadResult.textContent = 'No file found for the provided code.';
+        return;
+      }
+
+      const fileData = fileDoc.data();
+      const fileRef = ref(storage, fileData.filePath);
+      const downloadURL = await getDownloadURL(fileRef);
+
+      downloadResult.innerHTML = `Download your file: <a href="${downloadURL}" target="_blank">${fileData.fileName}</a>`;
+      downloadForm.reset();
+    });
+  </script>
+</body>
+</html>
